@@ -1,10 +1,10 @@
 CHANGES
 *******
 
-1.2.3 (unreleased)
+1.2.7 (unreleased)
 ==================
 
-- Nothing changed yet.
+- Update to Strophe 1.2.7
 
 
 1.2.2 (2015-06-22)
