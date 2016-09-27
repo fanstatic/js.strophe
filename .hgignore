@@ -2,9 +2,12 @@ syntax: glob
 
 bin
 parts
+lib
+include
 .installed.cfg
 *.egg-info
 *.pyc
 *~
 develop-eggs
 dist
+pip-selfcheck.json
