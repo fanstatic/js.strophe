@@ -621,9 +621,8 @@ return {
  *
  *  This Function object extension method creates a bound method similar
  *  to those in Python.  This means that the 'this' object will point
- *  to the instance you want.  See
- *  <a href='https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Function/bind'>MDC's bind() documentation</a> and
- *  <a href='http://benjamin.smedbergs.us/blog/2007-01-03/bound-functions-and-function-imports-in-javascript/'>Bound Functions and Function Imports in JavaScript</a>
+ *  to the instance you want.  See <MDC's bind() documentation at https://developer.mozilla.org/en/JavaScript/Reference/Global_Objects/Function/bind>
+ *  and <Bound Functions and Function Imports in JavaScript at http://benjamin.smedbergs.us/blog/2007-01-03/bound-functions-and-function-imports-in-javascript/>
  *  for a complete explanation.
  *
  *  This extension already exists in some browsers (namely, Firefox 3), but
@@ -695,7 +694,8 @@ if (!Array.prototype.indexOf) {
 /** Function: Array.prototype.forEach
  *
  *  This function is not available in IE < 9
- *  https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach
+ *
+ *  See <forEach on developer.mozilla.org at https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/Array/forEach>
  */
 if (!Array.prototype.forEach) {
     Array.prototype.forEach = function(callback, thisArg) {
@@ -846,7 +846,7 @@ Strophe = {
      *  The version of the Strophe library. Unreleased builds will have
      *  a version of head-HASH where HASH is a partial revision.
      */
-    VERSION: "1.2.9",
+    VERSION: "1.2.10",
 
     /** Constants: XMPP Namespace Constants
      *  Common namespace constants from the XMPP RFCs and XEPs.
@@ -2221,14 +2221,13 @@ Strophe.TimedHandler.prototype = {
  *  Options common to both Websocket and BOSH:
  *  ------------------------------------------
  *
- *  cookies
- *  ~~~~~~~
+ *  cookies:
  *
- *  The "cookies" option allows you to pass in cookies to be added to the
+ *  The *cookies* option allows you to pass in cookies to be added to the
  *  document. These cookies will then be included in the BOSH XMLHttpRequest
  *  or in the websocket connection.
  *
- *  The passed in value must be a map of cookie names and string values:
+ *  The passed in value must be a map of cookie names and string values.
  *
  *  > { "myCookie": {
  *  >     "value": "1234",
@@ -2243,10 +2242,9 @@ Strophe.TimedHandler.prototype = {
  *  set server-side by making a XHR call to that domain to ask it to set any
  *  necessary cookies.
  *
- *  mechanisms
- *  ~~~~~~~~~~
+ *  mechanisms:
  *
- *  The "mechanisms" option allows you to specify the SASL mechanisms that this
+ *  The *mechanisms* option allows you to specify the SASL mechanisms that this
  *  instance of Strophe.Connection (and therefore your XMPP client) will
  *  support.
  *
@@ -2286,23 +2284,23 @@ Strophe.TimedHandler.prototype = {
  *
  *  By adding "sync" to the options, you can control if requests will
  *  be made synchronously or not. The default behaviour is asynchronous.
- *  If you want to make requests synchronous, make "sync" evaluate to true:
+ *  If you want to make requests synchronous, make "sync" evaluate to true.
  *  > var conn = new Strophe.Connection("/http-bind/", {sync: true});
  *
- *  You can also toggle this on an already established connection:
+ *  You can also toggle this on an already established connection.
  *  > conn.options.sync = true;
  *
- *  The "customHeaders" option can be used to provide custom HTTP headers to be
+ *  The *customHeaders* option can be used to provide custom HTTP headers to be
  *  included in the XMLHttpRequests made.
  *
- *  The "keepalive" option can be used to instruct Strophe to maintain the
+ *  The *keepalive* option can be used to instruct Strophe to maintain the
  *  current BOSH session across interruptions such as webpage reloads.
  *
  *  It will do this by caching the sessions tokens in sessionStorage, and when
  *  "restore" is called it will check whether there are cached tokens with
  *  which it can resume an existing session.
  *
- *  The "withCredentials" option should receive a Boolean value and is used to
+ *  The *withCredentials* option should receive a Boolean value and is used to
  *  indicate wether cookies should be included in ajax requests (by default
  *  they're not).
  *  Set this value to true if you are connecting to a BOSH service
@@ -2315,7 +2313,7 @@ Strophe.TimedHandler.prototype = {
  *  Access-Control-Allow-Origin header can't be set to the wildcard "*", but
  *  instead must be restricted to actual domains.
  *
- *  The "contentType" option can be set to change the default Content-Type
+ *  The *contentType* option can be set to change the default Content-Type
  *  of "text/xml; charset=utf-8", which can be useful to reduce the amount of
  *  CORS preflight requests that are sent to the server.
  *
@@ -2832,6 +2830,67 @@ Strophe.Connection.prototype = {
         this._onIdle();
     },
 
+    /** Function: sendPresence
+     *  Helper function to send presence stanzas. The main benefit is for
+     *  sending presence stanzas for which you expect a responding presence
+     *  stanza with the same id (for example when leaving a chat room).
+     *
+     *  Parameters:
+     *    (XMLElement) elem - The stanza to send.
+     *    (Function) callback - The callback function for a successful request.
+     *    (Function) errback - The callback function for a failed or timed
+     *      out request.  On timeout, the stanza will be null.
+     *    (Integer) timeout - The time specified in milliseconds for a
+     *      timeout to occur.
+     *
+     *  Returns:
+     *    The id used to send the presence.
+     */
+    sendPresence: function(elem, callback, errback, timeout) {
+        var timeoutHandler = null;
+        var that = this;
+        if (typeof(elem.tree) === "function") {
+            elem = elem.tree();
+        }
+        var id = elem.getAttribute('id');
+        if (!id) { // inject id if not found
+            id = this.getUniqueId("sendPresence");
+            elem.setAttribute("id", id);
+        }
+
+        if (typeof callback === "function" || typeof errback === "function") {
+            var handler = this.addHandler(function (stanza) {
+                // remove timeout handler if there is one
+                if (timeoutHandler) {
+                    that.deleteTimedHandler(timeoutHandler);
+                }
+                var type = stanza.getAttribute('type');
+                if (type == 'error') {
+                    if (errback) {
+                        errback(stanza);
+                    }
+                } else if (callback) {
+                    callback(stanza);
+                }
+            }, null, 'presence', null, id);
+
+            // if timeout specified, set up a timeout handler.
+            if (timeout) {
+                timeoutHandler = this.addTimedHandler(timeout, function () {
+                    // get rid of normal handler
+                    that.deleteHandler(handler);
+                    // call errback on timeout with null stanza
+                    if (errback) {
+                        errback(null);
+                    }
+                    return false;
+                });
+            }
+        }
+        this.send(elem);
+        return id;
+    },
+
     /** Function: sendIQ
      *  Helper function to send IQ stanzas.
      *
@@ -2849,73 +2908,50 @@ Strophe.Connection.prototype = {
     sendIQ: function(elem, callback, errback, timeout) {
         var timeoutHandler = null;
         var that = this;
-
         if (typeof(elem.tree) === "function") {
             elem = elem.tree();
         }
         var id = elem.getAttribute('id');
-
-        // inject id if not found
-        if (!id) {
+        if (!id) { // inject id if not found
             id = this.getUniqueId("sendIQ");
             elem.setAttribute("id", id);
         }
 
-        var expectedFrom = elem.getAttribute("to");
-        var fulljid = this.jid;
-
-        var handler = this.addHandler(function (stanza) {
-            // remove timeout handler if there is one
-            if (timeoutHandler) {
-                that.deleteTimedHandler(timeoutHandler);
-            }
-
-            var acceptable = false;
-            var from = stanza.getAttribute("from");
-            if (from === expectedFrom ||
-               (!expectedFrom &&
-                   (from === Strophe.getBareJidFromJid(fulljid) ||
-                    from === Strophe.getDomainFromJid(fulljid) ||
-                    from === fulljid))) {
-                acceptable = true;
-            }
-
-            if (!acceptable) {
-                throw {
-                    name: "StropheError",
-                    message: "Got answer to IQ from wrong jid:" + from +
-                             "\nExpected jid: " + expectedFrom
-                };
-            }
-
-            var iqtype = stanza.getAttribute('type');
-            if (iqtype == 'result') {
-                if (callback) {
-                    callback(stanza);
+        if (typeof callback === "function" || typeof errback === "function") {
+            var handler = this.addHandler(function (stanza) {
+                // remove timeout handler if there is one
+                if (timeoutHandler) {
+                    that.deleteTimedHandler(timeoutHandler);
                 }
-            } else if (iqtype == 'error') {
-                if (errback) {
-                    errback(stanza);
+                var iqtype = stanza.getAttribute('type');
+                if (iqtype == 'result') {
+                    if (callback) {
+                        callback(stanza);
+                    }
+                } else if (iqtype == 'error') {
+                    if (errback) {
+                        errback(stanza);
+                    }
+                } else {
+                    throw {
+                        name: "StropheError",
+                        message: "Got bad IQ type of " + iqtype
+                    };
                 }
-            } else {
-                throw {
-                    name: "StropheError",
-                    message: "Got bad IQ type of " + iqtype
-                };
-            }
-        }, null, 'iq', ['error', 'result'], id);
+            }, null, 'iq', ['error', 'result'], id);
 
-        // if timeout specified, setup timeout handler.
-        if (timeout) {
-            timeoutHandler = this.addTimedHandler(timeout, function () {
-                // get rid of normal handler
-                that.deleteHandler(handler);
-                // call errback on timeout with null stanza
-                if (errback) {
-                    errback(null);
-                }
-                return false;
-            });
+            // if timeout specified, set up a timeout handler.
+            if (timeout) {
+                timeoutHandler = this.addTimedHandler(timeout, function () {
+                    // get rid of normal handler
+                    that.deleteHandler(handler);
+                    // call errback on timeout with null stanza
+                    if (errback) {
+                        errback(null);
+                    }
+                    return false;
+                });
+            }
         }
         this.send(elem);
         return id;
@@ -3155,6 +3191,7 @@ Strophe.Connection.prototype = {
         } else {
             Strophe.info("Disconnect was called before Strophe connected to the server");
             this._proto._abortAllRequests();
+            this._doDisconnect();
         }
     },
 
@@ -4515,6 +4552,7 @@ Strophe.Bosh = function(connection) {
     this.wait = 60;
     this.window = 5;
     this.errors = 0;
+    this.inactivity = null;
 
     this._requests = [];
 };
@@ -4676,8 +4714,14 @@ Strophe.Bosh.prototype = {
                    session.rid &&
                    session.sid &&
                    session.jid &&
-                   (typeof jid === "undefined" || jid === null || Strophe.getBareJidFromJid(session.jid) == Strophe.getBareJidFromJid(jid)))
-        {
+                   (    typeof jid === "undefined" ||
+                        jid === null ||
+                        Strophe.getBareJidFromJid(session.jid) == Strophe.getBareJidFromJid(jid) ||
+                        // If authcid is null, then it's an anonymous login, so
+                        // we compare only the domains:
+                        ((Strophe.getNodeFromJid(jid) === null) && (Strophe.getDomainFromJid(session.jid) == jid))
+                    )
+        ) {
             this._conn.restored = true;
             this._attach(session.jid, session.sid, session.rid, callback, wait, hold, wind);
         } else {
@@ -4744,6 +4788,8 @@ Strophe.Bosh.prototype = {
         if (hold) { this.hold = parseInt(hold, 10); }
         var wait = bodyWrap.getAttribute('wait');
         if (wait) { this.wait = parseInt(wait, 10); }
+        var inactivity = bodyWrap.getAttribute('inactivity');
+        if (inactivity) { this.inactivity = parseInt(inactivity, 10); }
     },
 
     /** PrivateFunction: _disconnect
