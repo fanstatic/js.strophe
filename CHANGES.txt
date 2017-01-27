@@ -1,7 +1,7 @@
 CHANGES
 *******
 
-1.2.12 (unreleased)
+1.2.12 (2017-01-27)
 ===================
 
 - Update to Strophe 1.2.12
